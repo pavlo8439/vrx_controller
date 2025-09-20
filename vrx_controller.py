@@ -5,8 +5,6 @@ import time
 import math
 import board
 import digitalio
-import serial
-import threading
 import traceback
 from PIL import Image, ImageDraw, ImageFont
 from adafruit_rgb_display import ili9341
@@ -41,26 +39,6 @@ except Exception as e:
     print(f"Ошибка инициализации дисплея: {e}")
     print(traceback.format_exc())
     exit(1)
-
-# Настройка UART для ESP32
-def setup_uart():
-    uart_ports = ['/dev/serial0', '/dev/ttyAMA0', '/dev/ttyS0']
-    esp32 = None
-    
-    for port in uart_ports:
-        try:
-            esp32 = serial.Serial(port, 9600, timeout=0.1)
-            print(f"UART для ESP32 инициализирован на порту {port}")
-            return esp32
-        except Exception as e:
-            print(f"Не удалось открыть порт {port}: {e}")
-            continue
-    
-    print("Не удалось найти подходящий UART порт для ESP32")
-    return None
-
-# Инициализация UART
-esp32 = setup_uart()
 
 # Конфигурация VRX с полной частотной сеткой
 VRX_CONFIG = {
@@ -102,7 +80,7 @@ VRX_CONFIG = {
     'VRX4': {
         'type': '3.3GHz',
         'power_pin': 17,
-        'control_pins': {'CH_UP': 12, 'CH_DOWN': 5},
+        'control_pins': {'CH_UP': 12, 'CH_DOWN': 16},  # Изменен пин CH_DOWN с 5 на 16
         'channels': [
             3290, 3310, 3330, 3350, 3370, 3390, 3410, 3430,
             3450, 3470, 3490, 3510, 3530, 3550, 3570, 3590,
@@ -116,6 +94,8 @@ VRX_CONFIG = {
 BTN_SELECT = 27     # Выбор VRX/подтверждение
 BTN_UP = 22         # Переключение канала вверх/следующая группа
 BTN_DOWN = 23       # Переключение канала вниз/предыдущая группа
+BTN_BAND_UP = 5     # Переключение банда вверх (только для VRX1) - пин был свободен
+BTN_BAND_DOWN = 18  # Переключение банда вниз (только для VRX1) - пин был свободен
 
 # Текущее состояние
 current_vrx = 'VRX1'
@@ -126,9 +106,7 @@ channel_states = {
     'VRX4': {'channel': 0},
 }
 app_state = "vrx_select"  # Начинаем с выбора VRX
-VERSION = "1.9"
-rssi_value = 0
-autosearch_active = False
+VERSION = "2.0"
 active_vrx = None  # Текущий активный VRX
 
 # Функция для получения размеров дисплея
@@ -150,15 +128,6 @@ def set_vrx_power(vrx, power_on):
     GPIO.output(config['power_pin'], GPIO.LOW if power_on else GPIO.HIGH)
     status = "ВКЛ" if power_on else "ВЫКЛ"
     print(f"{vrx} питание: {status} (пин: {config['power_pin']}, состояние: {'LOW' if power_on else 'HIGH'})")
-
-# Функция для сброса каналов VRX
-def reset_vrx_channels(vrx):
-    if vrx == 'VRX1':
-        channel_states[vrx]['band'] = 'A'
-        channel_states[vrx]['channel'] = 0
-    else:
-        channel_states[vrx]['channel'] = 0
-    print(f"{vrx}: канал сброшен на начальное значение")
 
 # Функция для отображения экрана выбора VRX
 def show_vrx_selection():
@@ -260,7 +229,7 @@ def show_main_screen():
             draw.text((width//2 - channel_width//2, 110), channel_text, font=font_small, fill=(255, 255, 255))
             
             # Инструкция для VRX1
-            instruction = "UP: канал+  DOWN: канал-  SELECT: меню  HOLD UP/DOWN: группа"
+            instruction = "UP: канал+  DOWN: канал-  B1/B2: группа  SELECT: меню"
             
         else:
             # Для других VRX используем обычные каналы
@@ -286,17 +255,6 @@ def show_main_screen():
             
             # Инструкция для других VRX
             instruction = "UP: канал+  DOWN: канал-  SELECT: меню"
-        
-        # Отображение RSSI для VRX1
-        if current_vrx == 'VRX1':
-            rssi_text = f"RSSI: {rssi_value}"
-            rssi_width = draw.textlength(rssi_text, font=font_small)
-            draw.text((width//2 - rssi_width//2, 140), rssi_text, font=font_small, fill=(255, 255, 255))
-            
-            if autosearch_active:
-                search_text = "АВТОПОИСК АКТИВЕН"
-                search_width = draw.textlength(search_text, font=font_small)
-                draw.text((width//2 - search_width//2, 160), search_text, font=font_small, fill=(255, 0, 0))
         
         # Версия программы
         version_text = f"Ver: {VERSION}"
@@ -347,6 +305,8 @@ def setup_gpio():
     GPIO.setup(BTN_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(BTN_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(BTN_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(BTN_BAND_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(BTN_BAND_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Эмуляция нажатия кнопки на VRX
 def press_button(pin, duration=0.1):
@@ -396,7 +356,6 @@ def change_channel(direction):
         print(f"{current_vrx}: Канал {state['channel']+1}, Частота {freq} МГц")
         
         update_display()
-        send_state_to_esp32()
     except Exception as e:
         print(f"Ошибка переключения канала: {e}")
         print(traceback.format_exc())
@@ -417,218 +376,14 @@ def change_band(direction):
         new_band_index = (current_band_index - 1) % len(bands)
     
     state['band'] = bands[new_band_index]
-    state['channel'] = 0  # Сбрасываем канал при смене группы
+    # Не сбрасываем канал при смене группы - сохраняем последний выбранный канал
     
     # Эмулируем нажатие кнопки BAND
     press_button(config['control_pins']['BAND'])
     
-    print(f"{current_vrx}: Группа {state['band']}, Канал 1")
+    print(f"{current_vrx}: Группа {state['band']}, Канал {state['channel'] + 1}")
     
     update_display()
-    send_state_to_esp32()
-
-# Функция автопоиска для VRX1
-def autosearch():
-    global autosearch_active, rssi_value
-    
-    if current_vrx != 'VRX1':
-        return
-    
-    autosearch_active = True
-    update_display()
-    
-    best_rssi = 0
-    best_band = 'A'
-    best_channel = 0
-    
-    config = VRX_CONFIG['VRX1']
-    state = channel_states['VRX1']
-    bands = list(config['bands'].keys())
-    
-    # Сохраняем текущие настройки
-    original_band = state['band']
-    original_channel = state['channel']
-    
-    try:
-        # Перебираем все группы и каналы
-        for band in bands:
-            # Устанавливаем группу
-            while state['band'] != band:
-                change_band('UP' if bands.index(state['band']) < bands.index(band) else 'DOWN')
-                time.sleep(0.5)
-            
-            # Перебираем все каналы в группе
-            for channel in range(len(config['bands'][band])):
-                # Устанавливаем канал
-                while state['channel'] != channel:
-                    if state['channel'] < channel:
-                        change_channel('UP')
-                    else:
-                        change_channel('DOWN')
-                    time.sleep(0.2)
-                
-                # Ждем стабилизации сигнала
-                time.sleep(0.5)
-                
-                # Получаем RSSI от ESP32
-                if esp32:
-                    try:
-                        esp32.write(b'GET_RSSI\n')
-                        time.sleep(0.1)
-                        response = esp32.readline().decode().strip()
-                        if response:
-                            rssi_value = int(response)
-                        else:
-                            rssi_value = 0
-                    except:
-                        rssi_value = 0
-                
-                # Обновляем дисплей
-                update_display()
-                
-                # Проверяем, является ли это лучшим сигналом
-                if rssi_value > best_rssi:
-                    best_rssi = rssi_value
-                    best_band = band
-                    best_channel = channel
-    except Exception as e:
-        print(f"Ошибка в автопоиске: {e}")
-        print(traceback.format_exc())
-    finally:
-        # Всегда сбрасываем флаг автопоиска
-        autosearch_active = False
-    
-    # Возвращаемся к лучшему каналу
-    try:
-        # Устанавливаем лучшую группу
-        while state['band'] != best_band:
-            change_band('UP' if bands.index(state['band']) < bands.index(best_band) else 'DOWN')
-            time.sleep(0.5)
-        
-        # Устанавливаем лучший канал
-        while state['channel'] != best_channel:
-            if state['channel'] < best_channel:
-                change_channel('UP')
-            else:
-                change_channel('DOWN')
-            time.sleep(0.2)
-    except Exception as e:
-        print(f"Ошибка возврата к лучшему каналу: {e}")
-        print(traceback.format_exc())
-    
-    update_display()
-    print(f"Автопоиск завершен. Лучший канал: Группа {best_band}, Канал {best_channel+1}, RSSI: {best_rssi}")
-
-# Отправка состояния на ESP32
-def send_state_to_esp32():
-    if not esp32:
-        return
-    
-    vrx = current_vrx
-    state = channel_states[vrx]
-    config = VRX_CONFIG[vrx]
-    
-    try:
-        if current_vrx == 'VRX1':
-            # Для VRX1 отправляем информацию о группе и канале
-            band = state['band']
-            channel = state['channel']
-            
-            # Проверка выхода за границы массива каналов
-            if channel >= len(config['bands'][band]):
-                channel = len(config['bands'][band]) - 1
-            if channel < 0:
-                channel = 0
-                
-            freq = config['bands'][band][channel]
-            message = f"VRX:{vrx}:{band}:{channel}:{freq}:{rssi_value}\n"
-        else:
-            # Для других VRX отправляем только информацию о канале
-            channel = state['channel']
-            
-            # Проверка выхода за границы массива каналов
-            if channel >= len(config['channels']):
-                channel = len(config['channels']) - 1
-            if channel < 0:
-                channel = 0
-                
-            freq = config['channels'][channel]
-            message = f"VRX:{vrx}:::{channel}:{freq}:{rssi_value}\n"
-        
-        esp32.write(message.encode())
-        print(f"Отправлено на ESP32: {message.strip()}")
-    except Exception as e:
-        print(f"Ошибка отправки на ESP32: {e}")
-        print(traceback.format_exc())
-
-# Обработка команд от ESP32
-def handle_esp32_commands():
-    global current_vrx, app_state, active_vrx
-    
-    if not esp32:
-        return
-    
-    while True:
-        try:
-            if esp32.in_waiting > 0:
-                command = esp32.readline().decode().strip()
-                print(f"Получена команда от ESP32: {command}")
-                
-                if command.startswith("SELECT_"):
-                    vrx = command.split("_")[1]
-                    if vrx in VRX_CONFIG:
-                        # Выключаем текущий активный VRX
-                        if active_vrx:
-                            set_vrx_power(active_vrx, False)
-                            reset_vrx_channels(active_vrx)  # Сбрасываем каналы
-                        
-                        # Включаем новый VRX
-                        current_vrx = vrx
-                        set_vrx_power(current_vrx, True)
-                        active_vrx = current_vrx
-                        
-                        app_state = "main"
-                        update_display()
-                        send_state_to_esp32()
-                
-                elif command == "CH_UP":
-                    if app_state == "main":
-                        change_channel('UP')
-                
-                elif command == "CH_DOWN":
-                    if app_state == "main":
-                        change_channel('DOWN')
-                
-                elif command == "BAND_UP":
-                    if app_state == "main" and current_vrx == "VRX1":
-                        change_band('UP')
-                
-                elif command == "BAND_DOWN":
-                    if app_state == "main" and current_vrx == "VRX1":
-                        change_band('DOWN')
-                
-                elif command == "AUTO_SEARCH":
-                    if app_state == "main" and current_vrx == "VRX1":
-                        autosearch()
-                
-                elif command == "MENU":
-                    if app_state == "main":
-                        # Выключаем текущий VRX при возврате в меню
-                        if active_vrx:
-                            set_vrx_power(active_vrx, False)
-                            reset_vrx_channels(active_vrx)  # Сбрасываем каналы
-                            active_vrx = None
-                        
-                        app_state = "vrx_select"
-                    else:
-                        app_state = "main"
-                    update_display()
-        
-        except Exception as e:
-            print(f"Ошибка обработки команды от ESP32: {e}")
-            print(traceback.format_exc())
-        
-        time.sleep(0.1)
 
 # Переключение между VRX в режиме выбора
 def change_vrx(direction):
@@ -659,12 +414,6 @@ def main():
         print(traceback.format_exc())
         return
     
-    # Запуск обработки команд от ESP32 в отдельном потоке
-    if esp32:
-        esp32_thread = threading.Thread(target=handle_esp32_commands, daemon=True)
-        esp32_thread.start()
-        print("Поток обработки команд ESP32 запущен")
-    
     # Начинаем с экрана выбора VRX
     app_state = "vrx_select"
     try:
@@ -678,90 +427,70 @@ def main():
     last_select = 1
     last_up = 1
     last_down = 1
-    select_press_time = 0
-    up_press_time = 0
-    down_press_time = 0
+    last_band_up = 1
+    last_band_down = 1
     
     print("Система готова к работе")
     
     try:
         while True:
-            current_time = time.time()
-            
             # Обработка кнопки SELECT
             select_btn = GPIO.input(BTN_SELECT)
             if select_btn != last_select:
                 if select_btn == GPIO.LOW:
-                    select_press_time = current_time
-                else:
-                    # Кнопка отпущена
-                    press_duration = current_time - select_press_time
-                    
-                    if press_duration > 2.0 and app_state == "main" and current_vrx == "VRX1":
-                        # Долгое нажатие - автопоиск
-                        autosearch()
-                    elif press_duration > 0.1:
-                        # Короткое нажатие
-                        if app_state == "vrx_select":
-                            # Включаем выбранный VRX
-                            set_vrx_power(current_vrx, True)
-                            active_vrx = current_vrx
-                            
-                            app_state = "main"
-                            update_display()
-                        elif app_state == "main":
-                            # Выключаем текущий VRX при возврате в меню
-                            if active_vrx:
-                                set_vrx_power(active_vrx, False)
-                                reset_vrx_channels(active_vrx)  # Сбрасываем каналы
-                                active_vrx = None
-                            
-                            app_state = "vrx_select"
-                            update_display()
-                
+                    # Короткое нажатие
+                    if app_state == "vrx_select":
+                        # Включаем выбранный VRX
+                        set_vrx_power(current_vrx, True)
+                        active_vrx = current_vrx
+                        
+                        app_state = "main"
+                        update_display()
+                    elif app_state == "main":
+                        # Выключаем текущий VRX при возврате в меню
+                        if active_vrx:
+                            set_vrx_power(active_vrx, False)
+                            active_vrx = None
+                        
+                        app_state = "vrx_select"
+                        update_display()
                 last_select = select_btn
             
             # Обработка кнопки UP
             up_btn = GPIO.input(BTN_UP)
             if up_btn != last_up:
                 if up_btn == GPIO.LOW:
-                    up_press_time = current_time
-                else:
-                    # Кнопка отпущена
-                    press_duration = current_time - up_press_time
-                    
-                    if press_duration > 1.0 and app_state == "main" and current_vrx == "VRX1":
-                        # Долгое нажатие - следующая группа
-                        change_band('UP')
-                    elif press_duration > 0.1:
-                        # Короткое нажатие
-                        if app_state == "vrx_select":
-                            change_vrx('UP')
-                        elif app_state == "main":
-                            change_channel('UP')
-                
+                    # Короткое нажатие
+                    if app_state == "vrx_select":
+                        change_vrx('UP')
+                    elif app_state == "main":
+                        change_channel('UP')
                 last_up = up_btn
             
             # Обработка кнопки DOWN
             down_btn = GPIO.input(BTN_DOWN)
             if down_btn != last_down:
                 if down_btn == GPIO.LOW:
-                    down_press_time = current_time
-                else:
-                    # Кнопка отпущена
-                    press_duration = current_time - down_press_time
-                    
-                    if press_duration > 1.0 and app_state == "main" and current_vrx == "VRX1":
-                        # Долгое нажатие - предыдущая группа
-                        change_band('DOWN')
-                    elif press_duration > 0.1:
-                        # Короткое нажатие
-                        if app_state == "vrx_select":
-                            change_vrx('DOWN')
-                        elif app_state == "main":
-                            change_channel('DOWN')
-                
+                    # Короткое нажатие
+                    if app_state == "vrx_select":
+                        change_vrx('DOWN')
+                    elif app_state == "main":
+                        change_channel('DOWN')
                 last_down = down_btn
+            
+            # Обработка кнопки BAND_UP (только для VRX1 в основном режиме)
+            band_up_btn = GPIO.input(BTN_BAND_UP)
+            if band_up_btn != last_band_up:
+                if band_up_btn == GPIO.LOW and app_state == "main" and current_vrx == "VRX1":
+                    change_band('UP')
+                last_band_up = band_up_btn
+            
+            # Обработка кнопки BAND_DOWN (только для VRX1 в основном режиме)
+            band_down_btn = GPIO.input(BTN_BAND_DOWN)
+            if band_down_btn != last_band_down:
+                if band_down_btn == GPIO.LOW and app_state == "main" and current_vrx == "VRX1":
+                    change_band('DOWN')
+                last_band_down = band_down_btn
             
             time.sleep(0.1)
             
@@ -774,11 +503,8 @@ def main():
         # Выключаем все VRX при завершении программы
         for vrx in VRX_CONFIG:
             set_vrx_power(vrx, False)
-            reset_vrx_channels(vrx)  # Сбрасываем каналы
         
         GPIO.cleanup()
-        if esp32:
-            esp32.close()
         print("Ресурсы освобождены")
 
 if __name__ == "__main__":
