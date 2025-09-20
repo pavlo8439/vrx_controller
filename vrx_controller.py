@@ -47,7 +47,7 @@ VRX_CONFIG = {
         'type': '5.8GHz',
         'power_pin': 2,
         'control_pins': {'CH_UP': 6, 'CH_DOWN': 13, 'BAND_UP': 19, 'BAND_DOWN': 26},
-        'channels': {
+        'bands': {
             'A': [5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725],
             'B': [5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866],
             'E': [5705, 5685, 5665, 5645, 5885, 5905, 5925, 5945],
@@ -81,7 +81,7 @@ VRX_CONFIG = {
     'VRX4': {
         'type': '3.3GHz',
         'power_pin': 17,
-        'control_pins': {'CH_UP': 27, 'CH_DOWN': 22},
+        'control_pins': {'CH_UP': 5, 'CH_DOWN': 0},
         'channels': [
             3290, 3310, 3330, 3350, 3370, 3390, 3410, 3430,
             3450, 3470, 3490, 3510, 3530, 3550, 3570, 3590,
@@ -92,10 +92,11 @@ VRX_CONFIG = {
 }
 
 # Кнопки управления
-BTN_SELECT = 5      # Выбор VRX/подтверждение
-BTN_UP = 23         # Переключение канала вверх/band вверх для VRX1
-BTN_DOWN = 24       # Переключение канала вниз/band вниз для VRX1
-BTN_BAND = 18       # Переключение между каналом и band для VRX1
+BTN_SELECT = 27     # Выбор VRX/подтверждение
+BTN_UP = 22         # Переключение канала вверх
+BTN_DOWN = 23       # Переключение канала вниз
+BTN_BAND_UP = 24    # Переключение band вверх (только для VRX1)
+BTN_BAND_DOWN = 25  # Переключение band вниз (только для VRX1)
 
 # Текущее состояние
 current_vrx = 'VRX1'
@@ -108,7 +109,6 @@ channel_states = {
 app_state = "vrx_select"  # Начинаем с выбора VRX
 VERSION = "2.0"
 active_vrx = None  # Текущий активный VRX
-vrx1_mode = "channel"  # Режим для VRX1: "channel" или "band"
 
 # Функция для получения размеров дисплея
 def get_display_dimensions():
@@ -203,8 +203,8 @@ def show_main_screen():
         state = channel_states[current_vrx]
         
         if current_vrx == 'VRX1':
-            # Для VRX1 показываем band и channel
-            freq = config['channels'][state['band']][state['channel']]
+            # Для VRX1 используем bands
+            freq = config['bands'][state['band']][state['channel']]
             
             # Текущая частота
             freq_text = f"Частота: {freq} МГц"
@@ -212,20 +212,18 @@ def show_main_screen():
             draw.text((width//2 - freq_width//2, 50), freq_text, font=font_medium, fill=(255, 255, 255))
             
             # Band и канал
-            band_text = f"Группа: {state['band']}"
+            band_text = f"Band: {state['band']}"
             band_width = draw.textlength(band_text, font=font_small)
             draw.text((width//2 - band_width//2, 90), band_text, font=font_small, fill=(255, 255, 255))
             
-            channel_text = f"Канал: {state['channel'] + 1}"
+            channel_text = f"Канал: {state['channel'] + 1}/{len(config['bands'][state['band']])}"
             channel_width = draw.textlength(channel_text, font=font_small)
             draw.text((width//2 - channel_width//2, 110), channel_text, font=font_small, fill=(255, 255, 255))
             
-            # Режим управления
-            mode_text = f"Режим: {vrx1_mode}"
-            mode_width = draw.textlength(mode_text, font=font_small)
-            draw.text((width//2 - mode_width//2, 130), mode_text, font=font_small, fill=(255, 255, 255))
+            # Инструкция для VRX1
+            instruction = "UP/DOWN: каналы  BAND: группы  SELECT: меню"
         else:
-            # Для других VRX показываем только канал
+            # Для других VRX используем простые каналы
             freq = config['channels'][state['channel']]
             
             # Текущая частота
@@ -237,6 +235,9 @@ def show_main_screen():
             channel_text = f"Канал: {state['channel'] + 1}/{len(config['channels'])}"
             channel_width = draw.textlength(channel_text, font=font_small)
             draw.text((width//2 - channel_width//2, 90), channel_text, font=font_small, fill=(255, 255, 255))
+            
+            # Инструкция для других VRX
+            instruction = "UP/DOWN: каналы  SELECT: меню"
         
         # Версия программы
         version_text = f"Ver: {VERSION}"
@@ -244,11 +245,6 @@ def show_main_screen():
         draw.text((width - version_width - 10, height - 20), version_text, font=font_small, fill=(150, 150, 150))
         
         # Инструкция
-        if current_vrx == 'VRX1':
-            instruction = "UP/DOWN: канал/группа  BAND: режим  SELECT: меню"
-        else:
-            instruction = "UP/DOWN: канал  SELECT: меню"
-            
         instr_width = draw.textlength(instruction, font=font_small)
         draw.text((width//2 - instr_width//2, height - 40), instruction, font=font_small, fill=(200, 200, 200))
         
@@ -292,7 +288,8 @@ def setup_gpio():
     GPIO.setup(BTN_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(BTN_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(BTN_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.setup(BTN_BAND, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(BTN_BAND_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(BTN_BAND_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Эмуляция нажатия кнопки на VRX
 def press_button(pin, duration=0.1):
@@ -307,66 +304,83 @@ def change_channel(direction):
         config = VRX_CONFIG[current_vrx]
         
         if current_vrx == 'VRX1':
-            if vrx1_mode == "channel":
-                # Переключение канала для VRX1
-                if direction == 'UP':
-                    state['channel'] = (state['channel'] + 1) % len(config['channels'][state['band']])
-                    press_button(config['control_pins']['CH_UP'])
-                else:
-                    state['channel'] = (state['channel'] - 1) % len(config['channels'][state['band']])
-                    press_button(config['control_pins']['CH_DOWN'])
+            # Для VRX1 используем bands
+            bands = config['bands']
+            current_band = state['band']
+            
+            if direction == 'UP':
+                max_ch = len(bands[current_band]) - 1
+                state['channel'] = min(state['channel'] + 1, max_ch)
+                press_button(config['control_pins']['CH_UP'])
             else:
-                # Переключение band для VRX1
-                bands = list(config['channels'].keys())
-                current_band_index = bands.index(state['band'])
+                state['channel'] = max(state['channel'] - 1, 0)
+                press_button(config['control_pins']['CH_DOWN'])
                 
-                if direction == 'UP':
-                    new_index = (current_band_index + 1) % len(bands)
-                    state['band'] = bands[new_index]
-                    press_button(config['control_pins']['BAND_UP'])
-                else:
-                    new_index = (current_band_index - 1) % len(bands)
-                    state['band'] = bands[new_index]
-                    press_button(config['control_pins']['BAND_DOWN'])
-                
-                # Сбрасываем канал при смене band
-                state['channel'] = 0
+            freq = bands[current_band][state['channel']]
         else:
-            # Для других VRX просто переключаем каналы
+            # Для других VRX используем простые каналы
             if direction == 'UP':
                 state['channel'] = (state['channel'] + 1) % len(config['channels'])
                 press_button(config['control_pins']['CH_UP'])
             else:
                 state['channel'] = (state['channel'] - 1) % len(config['channels'])
                 press_button(config['control_pins']['CH_DOWN'])
-        
-        # Гарантируем, что канал находится в допустимых пределах
-        if current_vrx == 'VRX1':
-            max_channel = len(config['channels'][state['band']]) - 1
-        else:
-            max_channel = len(config['channels']) - 1
-            
-        if state['channel'] < 0:
-            state['channel'] = 0
-        if state['channel'] > max_channel:
-            state['channel'] = max_channel
-        
-        # Получаем текущую частоту
-        if current_vrx == 'VRX1':
-            freq = config['channels'][state['band']][state['channel']]
-        else:
+                
             freq = config['channels'][state['channel']]
         
-        print(f"{current_vrx}: {'Группа' if vrx1_mode == 'band' and current_vrx == 'VRX1' else 'Канал'} {state['band'] if current_vrx == 'VRX1' else ''} {state['channel']+1}, Частота {freq} МГц")
-        
+        print(f"{current_vrx}: Канал {state['channel']+1}, Частота {freq} МГц")
         update_display()
+        
     except Exception as e:
         print(f"Ошибка переключения канала: {e}")
         print(traceback.format_exc())
 
+# Переключение band для VRX1
+def change_band(direction):
+    if current_vrx != 'VRX1':
+        return
+        
+    try:
+        state = channel_states['VRX1']
+        config = VRX_CONFIG['VRX1']
+        bands = list(config['bands'].keys())
+        current_index = bands.index(state['band'])
+        
+        if direction == 'UP':
+            new_index = (current_index + 1) % len(bands)
+            press_button(config['control_pins']['BAND_UP'])
+        else:
+            new_index = (current_index - 1) % len(bands)
+            press_button(config['control_pins']['BAND_DOWN'])
+            
+        state['band'] = bands[new_index]
+        state['channel'] = 0  # Сбрасываем канал при смене band
+        
+        freq = config['bands'][state['band']][state['channel']]
+        print(f"VRX1: Band {state['band']}, Канал 1, Частота {freq} МГц")
+        update_display()
+        
+    except Exception as e:
+        print(f"Ошибка переключения band: {e}")
+        print(traceback.format_exc())
+
+# Переключение между VRX в режиме выбора
+def change_vrx(direction):
+    global current_vrx
+    vrx_list = list(VRX_CONFIG.keys())
+    current_index = vrx_list.index(current_vrx)
+    
+    if direction == 'UP':
+        current_index = (current_index + 1) % len(vrx_list)
+    else:
+        current_index = (current_index - 1) % len(vrx_list)
+    
+    current_vrx = vrx_list[current_index]
+    update_display()
+
 # Основная функция
 def main():
-    global app_state, current_vrx, active_vrx, vrx1_mode
+    global app_state, current_vrx, active_vrx
     
     print("Запуск системы управления VRX...")
     
@@ -392,7 +406,8 @@ def main():
     last_select = 1
     last_up = 1
     last_down = 1
-    last_band = 1
+    last_band_up = 1
+    last_band_down = 1
     select_press_time = 0
     
     print("Система готова к работе")
@@ -432,43 +447,35 @@ def main():
             
             # Обработка кнопки UP
             up_btn = GPIO.input(BTN_UP)
-            if up_btn != last_up:
-                if up_btn == GPIO.LOW:
-                    if app_state == "vrx_select":
-                        # Переключение VRX в режиме выбора
-                        vrx_list = list(VRX_CONFIG.keys())
-                        current_index = vrx_list.index(current_vrx)
-                        current_index = (current_index + 1) % len(vrx_list)
-                        current_vrx = vrx_list[current_index]
-                        update_display()
-                    elif app_state == "main":
-                        change_channel('UP')
+            if up_btn != last_up and up_btn == GPIO.LOW:
+                if app_state == "vrx_select":
+                    change_vrx('UP')
+                elif app_state == "main":
+                    change_channel('UP')
                 last_up = up_btn
             
             # Обработка кнопки DOWN
             down_btn = GPIO.input(BTN_DOWN)
-            if down_btn != last_down:
-                if down_btn == GPIO.LOW:
-                    if app_state == "vrx_select":
-                        # Переключение VRX в режиме выбора
-                        vrx_list = list(VRX_CONFIG.keys())
-                        current_index = vrx_list.index(current_vrx)
-                        current_index = (current_index - 1) % len(vrx_list)
-                        current_vrx = vrx_list[current_index]
-                        update_display()
-                    elif app_state == "main":
-                        change_channel('DOWN')
+            if down_btn != last_down and down_btn == GPIO.LOW:
+                if app_state == "vrx_select":
+                    change_vrx('DOWN')
+                elif app_state == "main":
+                    change_channel('DOWN')
                 last_down = down_btn
             
-            # Обработка кнопки BAND (только для VRX1 в основном режиме)
-            band_btn = GPIO.input(BTN_BAND)
-            if band_btn != last_band:
-                if band_btn == GPIO.LOW and app_state == "main" and current_vrx == "VRX1":
-                    # Переключение режима для VRX1
-                    vrx1_mode = "band" if vrx1_mode == "channel" else "channel"
-                    print(f"VRX1 режим изменен на: {vrx1_mode}")
-                    update_display()
-                last_band = band_btn
+            # Обработка кнопки BAND_UP (только для VRX1 в основном режиме)
+            band_up_btn = GPIO.input(BTN_BAND_UP)
+            if band_up_btn != last_band_up and band_up_btn == GPIO.LOW:
+                if app_state == "main" and current_vrx == "VRX1":
+                    change_band('UP')
+                last_band_up = band_up_btn
+            
+            # Обработка кнопки BAND_DOWN (только для VRX1 в основном режиме)
+            band_down_btn = GPIO.input(BTN_BAND_DOWN)
+            if band_down_btn != last_band_down and band_down_btn == GPIO.LOW:
+                if app_state == "main" and current_vrx == "VRX1":
+                    change_band('DOWN')
+                last_band_down = band_down_btn
             
             time.sleep(0.1)
             
