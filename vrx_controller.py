@@ -80,13 +80,98 @@ VRX_CONFIG = {
     'VRX4': {
         'type': '3.3GHz',
         'power_pin': 17,
-        'control_pins': {'CH_UP': 12, 'CH_DOWN': 16},  # Изменен пин CH_DOWN с 5 на 16
-        'channels': [
-            3290, 3310, 3330, 3350, 3370, 3390, 3410, 3430,
-            3450, 3470, 3490, 3510, 3530, 3550, 3570, 3590,
-            3610, 3630, 3650, 3670, 3690, 3710, 3730, 3750,
-            3770, 3790, 3810, 3830, 3850, 3870, 3890, 3910
-        ]
+        # Прямое управление через 6 бит как в Arduino скетче
+        'control_pins': {
+            'CS1': 12,
+            'CS2': 16,
+            'CS3': 20,
+            'S1': 21,
+            'S2': 26,
+            'S3': 19
+        },
+        # 64 канала как в Arduino скетче
+        'bands': {
+            'FR1': [
+                {'freq': 3360, 'cs': 0b000, 's': 0b000},
+                {'freq': 3380, 'cs': 0b001, 's': 0b000},
+                {'freq': 3400, 'cs': 0b010, 's': 0b000},
+                {'freq': 3420, 'cs': 0b011, 's': 0b000},
+                {'freq': 3440, 'cs': 0b100, 's': 0b000},
+                {'freq': 3460, 'cs': 0b101, 's': 0b000},
+                {'freq': 3480, 'cs': 0b110, 's': 0b000},
+                {'freq': 3500, 'cs': 0b111, 's': 0b000}
+            ],
+            'FR2': [
+                {'freq': 3200, 'cs': 0b000, 's': 0b001},
+                {'freq': 3220, 'cs': 0b001, 's': 0b001},
+                {'freq': 3240, 'cs': 0b010, 's': 0b001},
+                {'freq': 3260, 'cs': 0b011, 's': 0b001},
+                {'freq': 3280, 'cs': 0b100, 's': 0b001},
+                {'freq': 3300, 'cs': 0b101, 's': 0b001},
+                {'freq': 3320, 'cs': 0b110, 's': 0b001},
+                {'freq': 3340, 'cs': 0b111, 's': 0b001}
+            ],
+            'FR3': [
+                {'freq': 3330, 'cs': 0b000, 's': 0b010},
+                {'freq': 3350, 'cs': 0b001, 's': 0b010},
+                {'freq': 3370, 'cs': 0b010, 's': 0b010},
+                {'freq': 3390, 'cs': 0b011, 's': 0b010},
+                {'freq': 3410, 'cs': 0b100, 's': 0b010},
+                {'freq': 3430, 'cs': 0b101, 's': 0b010},
+                {'freq': 3450, 'cs': 0b110, 's': 0b010},
+                {'freq': 3470, 'cs': 0b111, 's': 0b010}
+            ],
+            'FR4': [
+                {'freq': 3170, 'cs': 0b000, 's': 0b011},
+                {'freq': 3190, 'cs': 0b001, 's': 0b011},
+                {'freq': 3210, 'cs': 0b010, 's': 0b011},
+                {'freq': 3230, 'cs': 0b011, 's': 0b011},
+                {'freq': 3250, 'cs': 0b100, 's': 0b011},
+                {'freq': 3270, 'cs': 0b101, 's': 0b011},
+                {'freq': 3290, 'cs': 0b110, 's': 0b011},
+                {'freq': 3310, 'cs': 0b111, 's': 0b011}
+            ],
+            'FR5': [
+                {'freq': 3320, 'cs': 0b000, 's': 0b100},
+                {'freq': 3345, 'cs': 0b001, 's': 0b100},
+                {'freq': 3370, 'cs': 0b010, 's': 0b100},
+                {'freq': 3395, 'cs': 0b011, 's': 0b100},
+                {'freq': 3420, 'cs': 0b100, 's': 0b100},
+                {'freq': 3445, 'cs': 0b101, 's': 0b100},
+                {'freq': 3470, 'cs': 0b110, 's': 0b100},
+                {'freq': 3495, 'cs': 0b111, 's': 0b100}
+            ],
+            'FR6': [
+                {'freq': 3310, 'cs': 0b000, 's': 0b101},
+                {'freq': 3330, 'cs': 0b001, 's': 0b101},
+                {'freq': 3355, 'cs': 0b010, 's': 0b101},
+                {'freq': 3380, 'cs': 0b011, 's': 0b101},
+                {'freq': 3405, 'cs': 0b100, 's': 0b101},
+                {'freq': 3430, 'cs': 0b101, 's': 0b101},
+                {'freq': 3455, 'cs': 0b110, 's': 0b101},
+                {'freq': 3480, 'cs': 0b111, 's': 0b101}
+            ],
+            'FR7': [
+                {'freq': 3220, 'cs': 0b000, 's': 0b110},
+                {'freq': 3240, 'cs': 0b001, 's': 0b110},
+                {'freq': 3260, 'cs': 0b010, 's': 0b110},
+                {'freq': 3280, 'cs': 0b011, 's': 0b110},
+                {'freq': 3300, 'cs': 0b100, 's': 0b110},
+                {'freq': 3320, 'cs': 0b101, 's': 0b110},
+                {'freq': 3340, 'cs': 0b110, 's': 0b110},
+                {'freq': 3360, 'cs': 0b111, 's': 0b110}
+            ],
+            'FR8': [
+                {'freq': 3060, 'cs': 0b000, 's': 0b111},
+                {'freq': 3080, 'cs': 0b001, 's': 0b111},
+                {'freq': 3100, 'cs': 0b010, 's': 0b111},
+                {'freq': 3120, 'cs': 0b011, 's': 0b111},
+                {'freq': 3140, 'cs': 0b100, 's': 0b111},
+                {'freq': 3160, 'cs': 0b101, 's': 0b111},
+                {'freq': 3180, 'cs': 0b110, 's': 0b111},
+                {'freq': 3200, 'cs': 0b111, 's': 0b111}
+            ]
+        }
     }
 }
 
@@ -103,10 +188,10 @@ channel_states = {
     'VRX1': {'band': 'A', 'channel': 0},
     'VRX2': {'channel': 0},
     'VRX3': {'channel': 0},
-    'VRX4': {'channel': 0},
+    'VRX4': {'band': 'FR1', 'channel': 0},  # Добавлен band для VRX4
 }
 app_state = "vrx_select"  # Начинаем с выбора VRX
-VERSION = "2.0"
+VERSION = "2.1"  # Обновлена версия
 active_vrx = None  # Текущий активный VRX
 
 # Функция для получения размеров дисплея
@@ -128,6 +213,36 @@ def set_vrx_power(vrx, power_on):
     GPIO.output(config['power_pin'], GPIO.LOW if power_on else GPIO.HIGH)
     status = "ВКЛ" if power_on else "ВЫКЛ"
     print(f"{vrx} питание: {status} (пин: {config['power_pin']}, состояние: {'LOW' if power_on else 'HIGH'})")
+    
+    # Для VRX4 при включении устанавливаем начальный канал
+    if vrx == 'VRX4' and power_on:
+        state = channel_states[vrx]
+        set_vrx4_channel(state['band'], state['channel'])
+
+# Функция для установки канала VRX4 через прямые GPIO
+def set_vrx4_channel(band, channel):
+    config = VRX_CONFIG['VRX4']
+    
+    # Получаем данные канала
+    channel_data = config['bands'][band][channel]
+    cs_bits = channel_data['cs']
+    s_bits = channel_data['s']
+    
+    # Устанавливаем CS пины (CS1, CS2, CS3)
+    GPIO.output(config['control_pins']['CS1'], (cs_bits >> 0) & 1)
+    GPIO.output(config['control_pins']['CS2'], (cs_bits >> 1) & 1)
+    GPIO.output(config['control_pins']['CS3'], (cs_bits >> 2) & 1)
+    
+    # Устанавливаем S пины (S1, S2, S3)
+    GPIO.output(config['control_pins']['S1'], (s_bits >> 0) & 1)
+    GPIO.output(config['control_pins']['S2'], (s_bits >> 1) & 1)
+    GPIO.output(config['control_pins']['S3'], (s_bits >> 2) & 1)
+    
+    freq = channel_data['freq']
+    print(f"VRX4: Установлен канал Band:{band}, Channel:{channel+1}, Частота:{freq}MHz")
+    print(f"  CS биты: {bin(cs_bits)}, S биты: {bin(s_bits)}")
+    print(f"  Пины CS: {GPIO.input(config['control_pins']['CS1'])}, {GPIO.input(config['control_pins']['CS2'])}, {GPIO.input(config['control_pins']['CS3'])}")
+    print(f"  Пины S: {GPIO.input(config['control_pins']['S1'])}, {GPIO.input(config['control_pins']['S2'])}, {GPIO.input(config['control_pins']['S3'])}")
 
 # Функция для отображения экрана выбора VRX
 def show_vrx_selection():
@@ -201,8 +316,8 @@ def show_main_screen():
         config = VRX_CONFIG[current_vrx]
         state = channel_states[current_vrx]
         
-        if current_vrx == 'VRX1':
-            # Для VRX1 используем bands
+        if current_vrx in ['VRX1', 'VRX4']:
+            # Для VRX1 и VRX4 используем bands
             band = state['band']
             channel = state['channel']
             
@@ -212,7 +327,11 @@ def show_main_screen():
             if channel < 0:
                 channel = 0
                 
-            freq = config['bands'][band][channel]
+            # Для VRX4 структура отличается
+            if current_vrx == 'VRX4':
+                freq = config['bands'][band][channel]['freq']
+            else:
+                freq = config['bands'][band][channel]
             
             # Текущая частота
             freq_text = f"Частота: {freq} МГц"
@@ -228,7 +347,7 @@ def show_main_screen():
             channel_width = draw.textlength(channel_text, font=font_small)
             draw.text((width//2 - channel_width//2, 110), channel_text, font=font_small, fill=(255, 255, 255))
             
-            # Инструкция для VRX1
+            # Инструкция для VRX1 и VRX4
             instruction = "UP: канал+  DOWN: канал-  B1/B2: группа  SELECT: меню"
             
         else:
@@ -297,9 +416,14 @@ def setup_gpio():
     
     # Настройка управляющих пинов VRX
     for vrx, config in VRX_CONFIG.items():
-        for pin in config['control_pins'].values():
-            GPIO.setup(pin, GPIO.OUT)
-            GPIO.output(pin, GPIO.HIGH)
+        if 'control_pins' in config:
+            for pin_name, pin in config['control_pins'].items():
+                GPIO.setup(pin, GPIO.OUT)
+                # Для VRX4 устанавливаем начальные значения
+                if vrx == 'VRX4':
+                    GPIO.output(pin, GPIO.LOW)
+                else:
+                    GPIO.output(pin, GPIO.HIGH)
     
     # Настройка кнопок
     GPIO.setup(BTN_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -320,15 +444,20 @@ def change_channel(direction):
         state = channel_states[current_vrx]
         config = VRX_CONFIG[current_vrx]
         
-        if current_vrx == 'VRX1':
-            # Для VRX1 работаем с bands
+        if current_vrx in ['VRX1', 'VRX4']:
+            # Для VRX1 и VRX4 работаем с bands
             band = state['band']
             if direction == 'UP':
                 state['channel'] = (state['channel'] + 1) % len(config['bands'][band])
-                press_button(config['control_pins']['CH_UP'])
             else:
                 state['channel'] = (state['channel'] - 1) % len(config['bands'][band])
-                press_button(config['control_pins']['CH_DOWN'])
+                
+            # Для VRX4 устанавливаем канал напрямую через GPIO
+            if current_vrx == 'VRX4':
+                set_vrx4_channel(band, state['channel'])
+            else:
+                # Для VRX1 эмулируем нажатие кнопки
+                press_button(config['control_pins']['CH_UP'] if direction == 'UP' else config['control_pins']['CH_DOWN'])
         else:
             # Для других VRX обычные каналы
             if direction == 'UP':
@@ -339,13 +468,16 @@ def change_channel(direction):
                 press_button(config['control_pins']['CH_DOWN'])
         
         # Гарантируем, что канал находится в допустимых пределах
-        if current_vrx == 'VRX1':
+        if current_vrx in ['VRX1', 'VRX4']:
             band = state['band']
             if state['channel'] < 0:
                 state['channel'] = 0
             if state['channel'] >= len(config['bands'][band]):
                 state['channel'] = len(config['bands'][band]) - 1
-            freq = config['bands'][band][state['channel']]
+            if current_vrx == 'VRX4':
+                freq = config['bands'][band][state['channel']]['freq']
+            else:
+                freq = config['bands'][band][state['channel']]
         else:
             if state['channel'] < 0:
                 state['channel'] = 0
@@ -360,9 +492,9 @@ def change_channel(direction):
         print(f"Ошибка переключения канала: {e}")
         print(traceback.format_exc())
 
-# Переключение групп для VRX1
+# Переключение групп для VRX1 и VRX4
 def change_band(direction):
-    if current_vrx != 'VRX1':
+    if current_vrx not in ['VRX1', 'VRX4']:
         return
     
     state = channel_states[current_vrx]
@@ -376,10 +508,15 @@ def change_band(direction):
         new_band_index = (current_band_index - 1) % len(bands)
     
     state['band'] = bands[new_band_index]
-    # Не сбрасываем канал при смене группы - сохраняем последний выбранный канал
+    # Сбрасываем канал при смене группы
+    state['channel'] = 0
     
-    # Эмулируем нажатие кнопки BAND
-    press_button(config['control_pins']['BAND'])
+    if current_vrx == 'VRX1':
+        # Для VRX1 эмулируем нажатие кнопки BAND
+        press_button(config['control_pins']['BAND'])
+    elif current_vrx == 'VRX4':
+        # Для VRX4 устанавливаем канал напрямую
+        set_vrx4_channel(state['band'], state['channel'])
     
     print(f"{current_vrx}: Группа {state['band']}, Канал {state['channel'] + 1}")
     
@@ -404,6 +541,7 @@ def main():
     global app_state, current_vrx, active_vrx
     
     print("Запуск системы управления VRX...")
+    print("VRX4 (3.3GHz) управляется напрямую через GPIO как в Arduino скетче")
     
     # Инициализация GPIO
     try:
@@ -478,17 +616,17 @@ def main():
                         change_channel('DOWN')
                 last_down = down_btn
             
-            # Обработка кнопки BAND_UP (только для VRX1 в основном режиме)
+            # Обработка кнопки BAND_UP (для VRX1 и VRX4 в основном режиме)
             band_up_btn = GPIO.input(BTN_BAND_UP)
             if band_up_btn != last_band_up:
-                if band_up_btn == GPIO.LOW and app_state == "main" and current_vrx == "VRX1":
+                if band_up_btn == GPIO.LOW and app_state == "main" and current_vrx in ["VRX1", "VRX4"]:
                     change_band('UP')
                 last_band_up = band_up_btn
             
-            # Обработка кнопки BAND_DOWN (только для VRX1 в основном режиме)
+            # Обработка кнопки BAND_DOWN (для VRX1 и VRX4 в основном режиме)
             band_down_btn = GPIO.input(BTN_BAND_DOWN)
             if band_down_btn != last_band_down:
-                if band_down_btn == GPIO.LOW and app_state == "main" and current_vrx == "VRX1":
+                if band_down_btn == GPIO.LOW and app_state == "main" and current_vrx in ["VRX1", "VRX4"]:
                     change_band('DOWN')
                 last_band_down = band_down_btn
             
